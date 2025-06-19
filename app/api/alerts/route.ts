@@ -38,21 +38,32 @@ export async function POST(request: Request) {
 // Get all alerts
 export async function GET() {
   try {
+    // Early return if Redis is not available
     if (!redis) {
       return NextResponse.json({ alerts: [] }, { status: 200 });
     }
 
+    // Store redis reference to satisfy TypeScript
+    const redisClient = redis;
+    
     // Get all alert IDs
-    const alertIds = await redis.lrange("alerts", 0, -1);
+    const alertIds = await redisClient.lrange("alerts", 0, -1);
     
     // Get all alert data
     const alerts = await Promise.all(
       alertIds.map(async (id) => {
-        const data = await redis.get(id);
-        return data ? JSON.parse(data) : null;
+        try {
+          const data = await redisClient.get<string>(id);
+          if (!data) return null;
+          return JSON.parse(data);
+        } catch (error) {
+          console.error(`Error fetching alert ${id}:`, error);
+          return null;
+        }
       })
     );
 
+    // Filter out any null values and return the alerts
     return NextResponse.json({ 
       alerts: alerts.filter(Boolean)
     }, { status: 200 });
