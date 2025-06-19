@@ -3,13 +3,39 @@ import { NextResponse } from "next/server";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    let body;
+    const contentType = request.headers.get('content-type');
+    console.log('Received alert webhook. Content-Type:', contentType);
+
+    // Handle different content types
+    if (contentType?.includes('application/json')) {
+      body = await request.json();
+    } else {
+      // Handle as text for any other content type
+      const textBody = await request.text();
+      console.log('Received text body:', textBody);
+      
+      // Try to parse as JSON in case it's JSON without proper content-type
+      try {
+        body = JSON.parse(textBody);
+      } catch {
+        // If not JSON, create a structured object from the text
+        body = {
+          message: textBody,
+          timestamp: new Date().toISOString(),
+          contentType: contentType || 'text/plain'
+        };
+      }
+    }
+
+    console.log('Processed body:', body);
     
     // Generate a timestamp-based ID for the alert
     const alertId = `alert:${Date.now()}`;
     
     // Store the alert data in Redis
     if (redis) {
+      console.log('Storing alert in Redis with ID:', alertId);
       await redis.set(alertId, JSON.stringify(body));
       
       // Also add to a list of alerts for easy retrieval
@@ -17,6 +43,12 @@ export async function POST(request: Request) {
       
       // Optionally keep only last 100 alerts
       await redis.ltrim("alerts", 0, 99);
+
+      // Verify storage
+      const stored = await redis.get(alertId);
+      console.log('Verified stored data:', stored);
+    } else {
+      console.warn('Redis client is not available');
     }
 
     return NextResponse.json({ 
@@ -48,12 +80,14 @@ export async function GET() {
     
     // Get all alert IDs
     const alertIds = await redisClient.lrange("alerts", 0, -1);
+    console.log('Retrieved alert IDs:', alertIds);
     
     // Get all alert data
     const alerts = await Promise.all(
       alertIds.map(async (id) => {
         try {
           const data = await redisClient.get<string>(id);
+          console.log(`Alert ${id} data:`, data);
           if (!data) return null;
           return JSON.parse(data);
         } catch (error) {
@@ -64,8 +98,11 @@ export async function GET() {
     );
 
     // Filter out any null values and return the alerts
+    const validAlerts = alerts.filter(Boolean);
+    console.log('Returning alerts:', validAlerts);
+    
     return NextResponse.json({ 
-      alerts: alerts.filter(Boolean)
+      alerts: validAlerts
     }, { status: 200 });
   } catch (error) {
     console.error("Error fetching alerts:", error);
