@@ -6,7 +6,15 @@ if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN
   );
 }
 
+// Ensure the URL has the correct format
+const url = process.env.UPSTASH_REDIS_REST_URL;
+if (!url.startsWith('https://')) {
+  throw new Error('Redis URL must start with https://');
+}
+
+console.log('Initializing Redis client with URL:', url);
+
 export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_REST_URL,
+  url,
   token: process.env.UPSTASH_REDIS_REST_TOKEN,
 });

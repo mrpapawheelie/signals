@@ -3,22 +3,44 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
-    // Try to set a test value
-    const testKey = "test:" + Date.now();
-    const testValue = "Hello from Redis at " + new Date().toISOString();
+    // Log Redis client configuration
+    console.log('Redis client configuration:', {
+      url: process.env.UPSTASH_REDIS_REST_URL?.substring(0, 20) + '...',
+      hasToken: !!process.env.UPSTASH_REDIS_REST_TOKEN
+    });
+
+    // Try a simple set operation
+    console.log('Attempting to set test key...');
+    const testKey = "test-key";
+    const testValue = "test-value";
     
-    console.log('Testing Redis connection...');
-    console.log('Redis URL:', process.env.UPSTASH_REDIS_REST_URL);
-    console.log('Redis Token exists:', !!process.env.UPSTASH_REDIS_REST_TOKEN);
-    
-    await redis.set(testKey, testValue);
-    const retrieved = await redis.get(testKey);
-    
+    const setResult = await redis.set(testKey, testValue);
+    console.log('Set result:', setResult);
+
+    // Try to get the value back
+    console.log('Attempting to get test key...');
+    const getValue = await redis.get(testKey);
+    console.log('Get result:', getValue);
+
+    // List all keys
+    console.log('Attempting to list all keys...');
+    const keys = await redis.keys('*');
+    console.log('All keys in Redis:', keys);
+
     return NextResponse.json({ 
       success: true,
-      test_key: testKey,
-      test_value: testValue,
-      retrieved_value: retrieved,
+      operations: {
+        set: {
+          key: testKey,
+          value: testValue,
+          result: setResult
+        },
+        get: {
+          key: testKey,
+          retrieved: getValue
+        },
+        keys: keys
+      },
       env_vars_set: {
         url: !!process.env.UPSTASH_REDIS_REST_URL,
         token: !!process.env.UPSTASH_REDIS_REST_TOKEN
@@ -28,7 +50,11 @@ export async function GET() {
     console.error('Redis test error:', error);
     return NextResponse.json({ 
       success: false, 
-      error: error instanceof Error ? error.message : "Unknown error",
+      error: error instanceof Error ? {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      } : "Unknown error",
       env_vars_set: {
         url: !!process.env.UPSTASH_REDIS_REST_URL,
         token: !!process.env.UPSTASH_REDIS_REST_TOKEN
