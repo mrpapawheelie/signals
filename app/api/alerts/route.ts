@@ -34,22 +34,18 @@ export async function POST(request: Request) {
     const alertId = `alert:${Date.now()}`;
     
     // Store the alert data in Redis
-    if (redis) {
-      console.log('Storing alert in Redis with ID:', alertId);
-      await redis.set(alertId, JSON.stringify(body));
-      
-      // Also add to a list of alerts for easy retrieval
-      await redis.lpush("alerts", alertId);
-      
-      // Optionally keep only last 100 alerts
-      await redis.ltrim("alerts", 0, 99);
+    console.log('Storing alert in Redis with ID:', alertId);
+    await redis.set(alertId, JSON.stringify(body));
+    
+    // Also add to a list of alerts for easy retrieval
+    await redis.lpush("alerts", alertId);
+    
+    // Optionally keep only last 100 alerts
+    await redis.ltrim("alerts", 0, 99);
 
-      // Verify storage
-      const stored = await redis.get(alertId);
-      console.log('Verified stored data:', stored);
-    } else {
-      console.warn('Redis client is not available');
-    }
+    // Verify storage
+    const stored = await redis.get(alertId);
+    console.log('Verified stored data:', stored);
 
     return NextResponse.json({ 
       success: true, 
@@ -70,23 +66,15 @@ export async function POST(request: Request) {
 // Get all alerts
 export async function GET() {
   try {
-    // Early return if Redis is not available
-    if (!redis) {
-      return NextResponse.json({ alerts: [] }, { status: 200 });
-    }
-
-    // Store redis reference to satisfy TypeScript
-    const redisClient = redis;
-    
     // Get all alert IDs
-    const alertIds = await redisClient.lrange("alerts", 0, -1);
+    const alertIds = await redis.lrange("alerts", 0, -1);
     console.log('Retrieved alert IDs:', alertIds);
     
     // Get all alert data
     const alerts = await Promise.all(
       alertIds.map(async (id) => {
         try {
-          const data = await redisClient.get<string>(id);
+          const data = await redis.get<string>(id);
           console.log(`Alert ${id} data:`, data);
           if (!data) return null;
           return JSON.parse(data);
