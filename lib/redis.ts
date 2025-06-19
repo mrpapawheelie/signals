@@ -1,20 +1,19 @@
 import { Redis } from "@upstash/redis";
 
-if (!process.env.UPSTASH_REDIS_REST_URL || !process.env.UPSTASH_REDIS_REST_TOKEN) {
+if (!process.env.REDIS_URL) {
   throw new Error(
-    "UPSTASH_REDIS_REST_URL or UPSTASH_REDIS_REST_TOKEN environment variables are not defined"
+    "REDIS_URL environment variable is not defined"
   );
 }
 
-// Ensure the URL has the correct format
-const url = process.env.UPSTASH_REDIS_REST_URL;
-if (!url.startsWith('https://')) {
-  throw new Error('Redis URL must start with https://');
-}
+// Parse Redis URL to get the token and URL
+const redisUrl = new URL(process.env.REDIS_URL);
+const token = redisUrl.username + ":" + redisUrl.password;
+const url = `https://${redisUrl.hostname}`;
 
-console.log('Initializing Redis client with URL:', url);
+console.log('Initializing Redis client...');
 
 export const redis = new Redis({
   url,
-  token: process.env.UPSTASH_REDIS_REST_TOKEN,
+  token,
 });
