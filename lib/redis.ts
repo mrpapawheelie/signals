@@ -8,7 +8,9 @@ if (!process.env.REDIS_URL) {
 
 // Parse Redis URL to get the token and URL
 const redisUrl = new URL(process.env.REDIS_URL);
-const token = redisUrl.username + ":" + redisUrl.password;
+
+// Extract the password part only for the token
+const token = decodeURIComponent(redisUrl.password || '');
 
 // For Upstash, we need to convert rediss://hostname:port to https://hostname
 const url = `https://${redisUrl.hostname}`;
